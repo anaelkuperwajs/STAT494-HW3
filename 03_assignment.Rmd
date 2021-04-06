@@ -139,7 +139,7 @@ new_obs3 <- house_testing %>% slice(2345)
 1. Choose 3 new observations and do the following for each observation:  
   - Construct a break-down plot using the default ordering. Interpret the resulting graph. Which variables contribute most to each observation's prediction?
   
-ANSWER
+We can see in all three graphs that the intercept is 5.665, meaning that is the average predicted log_price when the random forest is applied to all the training data. The final predicted outcome is slightly different for each observation, but between 5.83-6.15. The contribution of the variables to each prediction, however, varies greatly between each observation. The model isn't additive, so the order of variables matters to these plots.
 
 For the first observation, sqft_living = 3790 contributes the most.
 For the second observation, lat = 47.7095 contributes the most.
@@ -168,7 +168,9 @@ plot(pp_rf3)
   
   - Construct a SHAP graph and interpret it. Does it tell a similar story to the break-down plot?  
 
-ANSWER
+The SHAP graph takes the average contributions of variables from a variety of permutations of break-down plots. For the second two observations, the variable that contributes the most is the same. For the first observation, however, the variable that contributes the most in the SHAP graph is the second in the break-down plot, showing that taking the average is important to get an accurate reading on contribution. Furthermore, the contribution to the predicted outcome is usually mostly built from a few variables.
+
+Each individual observation does have a similar story between the SHAP graph and the break-down plot. For instance, the negative or positive contributions match up between plots for the same observation.
 
 ```{r}
 rf_shap1 <-predict_parts(explainer = rf_explain,
@@ -197,7 +199,7 @@ plot(rf_shap3)
   
   - Construct a LIME graph (follow my code carefully). How close is each original prediction to the prediction from the local model? Interpret the result. You can also try using fewer or more variables in the local model than I used in the example.
 
-ANSWER
+The first and third observations have a reasonable explanation fit, while the second observation has an extremely low explanation fit. This makes me belive that the second observation is not as reliable as the other two. That being said, the original prediction and the prediction from the local model are all very similar. About 0.11 difference for the first and third observation and about 0.15 difference for the second observation. The plots show the variables that have the most weight in the local model, and the most important variable usually does correspond to the first or second most important variable in the SHAP graph and break-down plots.
 
 ```{r}
 set.seed(2)
@@ -258,8 +260,8 @@ plot(lime_rf3) +
 
 ANSWER
 tools:
-global: Model performance, Variable importance, Ceteris-paribus profiles, Partial dependence plots
-local: CP Profile, breakdown plots, SHAP, LIME
+  global: Model performance, Variable importance, Ceteris-paribus profiles, Partial dependence plots
+  local: CP Profile, breakdown plots, SHAP, LIME
 
 ## SQL
 
@@ -330,6 +332,8 @@ flights %>%
 
 
 2. Come up with your own interesting question that data in the airlines database can help you answer. Write a SQL query and equivalent R code chunk to extract the data you need and create an elegant graph to help answer the question. Be sure to write down the question so it is clear. 
+
+Question: ANSWER
 
 ```{r}
 
@@ -582,7 +586,7 @@ Read the project description on the moodle page. Talk to your group members abou
 
 Write a short paragraph about ideas you have. If you already have some data sources in mind, you can link to those, but I'm more concerned with you having a topic that you're interested in investigating right now. 
 
-ANSWER
+There are a couple of ideas I could think of that might make an interesting topic. A general theme would be mapping, visualizing, and analyzing the accessibility of certain items. This could be either with computer science courses in K-12 education, mental health resources, plant-based diet options, or hiking and backpacking trails. Another topic could be investigating forest fires and wildfires and building a prediction system.
 
 ## "Undoing" bias
 
@@ -590,5 +594,5 @@ ANSWER
 
 Read this tweet [thread](https://threadreaderapp.com/thread/1375957284061376516.html) by [Deb Raji](https://en.wikipedia.org/wiki/Deborah_Raji) who you may remember from the *Coded Bias* film. Write a short paragraph that discusses at least one of the misconceptions.
 
-ANSWER
+The four misconceptions that Deb Raji addresses are all very important for everyone to understand and for the issue of bias in algorithms to begin changing. I think the first misconception is an important one to discuss, the idea that bias starts in the data. Even as a novice in this field learning about bias in algorithms one of the most common things I've heard is that it comes from biased data. While this is definitely a possibility, and a huge factor of algorithmic bias, it is not the only option. Raji mentions this explicitly, stating that bias can be introduced in any of the numerous decisions that have to be made to create an algorithm. Any place where there is a choice to be made, technology can take on a person's bias. Blaming all of the bias on human-collected data would eliminate the responsibility and weight of the choices data scientists and programmers have to make. It is important to understand that every choice carries some responsibility for the bias and fairness of the end result. Without this understanding, people will solely be striving to fix the data collection issues and not take into consideration their own actions when interacting with data and building models.
 
