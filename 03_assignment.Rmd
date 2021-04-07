@@ -10,7 +10,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-#knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
 ```{r libraries, message=FALSE}
@@ -139,9 +139,9 @@ new_obs3 <- house_testing %>% slice(2345)
 1. Choose 3 new observations and do the following for each observation:  
   - Construct a break-down plot using the default ordering. Interpret the resulting graph. Which variables contribute most to each observation's prediction?
   
-We can see in all three graphs that the intercept is 5.665, meaning that is the average predicted log_price when the random forest is applied to all the training data. The final predicted outcome is slightly different for each observation, but between 5.83-6.15. The contribution of the variables to each prediction, however, varies greatly between each observation. The model isn't additive, so the order of variables matters to these plots.
+The resulting graphs are showing us which variables contribute the most to the prediction. We can see in all three graphs that the intercept is 5.665, meaning that is the average predicted log_price when the random forest is applied to all the training data. The final predicted outcome is slightly different for each observation, between 5.83-6.15. The contribution of the variables to each prediction, however, varies greatly between each observation. The model isn't additive, so the order of variables matters to these plots.
 
-For the first observation, sqft_living = 3790 contributes the most.
+For the first observation, grade = 10 contributes the most.
 For the second observation, lat = 47.7095 contributes the most.
 For the third observation, lat = 47.5914 contributes the most.
 
@@ -168,7 +168,7 @@ plot(pp_rf3)
   
   - Construct a SHAP graph and interpret it. Does it tell a similar story to the break-down plot?  
 
-The SHAP graph takes the average contributions of variables from a variety of permutations of break-down plots. For the second two observations, the variable that contributes the most is the same. For the first observation, however, the variable that contributes the most in the SHAP graph is the second in the break-down plot, showing that taking the average is important to get an accurate reading on contribution. Furthermore, the contribution to the predicted outcome is usually mostly built from a few variables.
+The SHAP graph takes the average contributions of variables from a variety of permutations of break-down plots. SHAP still has the same purpose as break-down plots, showing us which variables contribute the most to the predicted value. For all the observations, the variable that contributes the most is the same as the break-down plot. Furthermore, the contribution to the predicted outcome is usually mostly built from a few variables.
 
 Each individual observation does have a similar story between the SHAP graph and the break-down plot. For instance, the negative or positive contributions match up between plots for the same observation.
 
@@ -199,7 +199,7 @@ plot(rf_shap3)
   
   - Construct a LIME graph (follow my code carefully). How close is each original prediction to the prediction from the local model? Interpret the result. You can also try using fewer or more variables in the local model than I used in the example.
 
-The first and third observations have a reasonable explanation fit, while the second observation has an extremely low explanation fit. This makes me belive that the second observation is not as reliable as the other two. That being said, the original prediction and the prediction from the local model are all very similar. About 0.11 difference for the first and third observation and about 0.15 difference for the second observation. The plots show the variables that have the most weight in the local model, and the most important variable usually does correspond to the first or second most important variable in the SHAP graph and break-down plots.
+LIME graphs also have the same purpose as the other two, but using a different method. Here it is comparing two different predictions. The first and third observations have a reasonable explanation fit, while the second observation has an extremely low explanation fit. This makes me believe that the second observation is not as reliable as the other two. That being said, the original prediction and the prediction from the local model are all very similar. About 0.11 difference for the first and third observation and about 0.15 difference for the second observation. The plots show the variables that have the most weight in the local model, and the most important variable usually does correspond to the first or second most important variable in the SHAP graph and break-down plots.
 
 ```{r}
 set.seed(2)
@@ -258,10 +258,14 @@ plot(lime_rf3) +
 
 2. Describe how you would use the interpretable machine learning tools we've learned (both local and global) in future machine learning projects? How does each of them help you?
 
-ANSWER
-tools:
-  global: Model performance, Variable importance, Ceteris-paribus profiles, Partial dependence plots
-  local: CP Profile, breakdown plots, SHAP, LIME
+The tools that we've learned, both local and global, can be useful in helping interpret models that we've built. After building a stacked model, for instance, the result is not very interpretable so these tools can be a remedy for that issue. We don't need these tools for all models, such as regression and logistic regression, which can already be interpreted globally, but it is very important for other models, such as random forest, which is less interpretable.
+
+I would probably start by using model performance and variable importance, focusing on global interpretation. The model performance uses statistics, such as RMSE or accuracy, to evaluate how the model would translate. We can then use these statistics to calculate which variables are the most important, which could help when using the model with other data.
+
+I would then transition into using CP profiles and partial dependence plots. The CP profile is a local interpretation tool while the plots are global, but the cp profile is necessary for the plots. Furthermore, the plots can start the process of looking at local interpretation, which can be helpful. The CP profile looks at the effects of changing one variable while holding all the other constant on the outcome. This can show us which variables are important and what kind of effect just that one variable would have. Partial dependence plots average a set of observations, which allow us to look at a more generalizable value. Looking at all the individual CP profiles can also provide a sense of the range that there is locally.
+
+Lastly, I would go through break-down plots, SHAP graphs, and LIME graphs together, since they all have the same purpose of measuring the contribution of the various factors to the prediction. This can locally tell us which variables are the most important. In many cases it is important to know which variables hold more weight locally, because some specific scenarios would prioritize a local focus, such as with health care and looking at a particular patient.
+
 
 ## SQL
 
@@ -288,9 +292,6 @@ flights_20 <-
   tbl(con_air, "flights") %>% 
   head(200000)
 
-airports_20 <-
-  tbl(con_air, "airports")
-
 flights <- flights_20 %>% 
   filter(year == 2010) %>% 
   group_by(origin, year, month) %>% 
@@ -299,7 +300,7 @@ flights <- flights_20 %>%
             avg_air_time = mean(air_time),
             avg_distance = mean(distance),
             prop_late_over20 = mean(arr_delay > 20)) %>% 
-  inner_join(airports_20,
+  inner_join(tbl(con_air, "airports"),
              by = c("origin" = "faa")) %>% 
   arrange(desc(prop_late_over20))
 
@@ -328,12 +329,10 @@ ORDER BY `prop_late_over20` DESC
   - With the dataset you wrote out, create a graph that helps illustrate the "worst" airports in terms of late arrivals. You have some freedom in how you define worst and you may want to consider some of the other variables you computed. Do some theming to make your graph look glamorous (those of you who weren't in my intro data science class this year may want to watch Will Chase's [Glamour of Graphics](https://www.youtube.com/watch?v=h5cTacaWE6I) talk for inspiration).
   
 ```{r, fig.width=8, fig.height=10}
-flights_many <- flights %>% 
+flights_many_df <- flights_df %>% 
   filter(n_flights > 200)
 
-flights_many_df <- collect(flights_many)
-
-flights_many %>% 
+flights_many_df %>% 
   ggplot(aes(x = prop_late_over20,
              y = fct_reorder(origin, prop_late_over20, median))) +
   geom_col(fill = "lightblue") +
@@ -350,14 +349,14 @@ flights_many %>%
 
 ```{r}
 flights_many_table <- flights_many_df %>% 
+  ungroup() %>% 
   select(name, prop_late_over20, n_flights) %>% 
   arrange(desc(prop_late_over20)) %>% 
   head(6)
 
 flights_many_table
 
-knitr::kable(flights_many_table, col.names = gsub("[.]", " ", names(flights)))
-table(flights_many_table)
+knitr::kable(flights_many_table, col.names = c("Name", "Proportion of Late Flights", "Number of Flights"))
 ```
 
 
@@ -367,8 +366,7 @@ Question: what months are the most common for flying?
 
 ```{r}
 flights_months <- tbl(con_air, "flights") %>% 
-  filter(year == 2010) %>% 
-  group_by(month) %>% 
+  group_by(month, year) %>% 
   summarize(n_flights = n()) %>% 
   arrange(desc(n_flights))
 
@@ -379,15 +377,17 @@ flights_months_df
 ```
 
 ```{sql connection = con_air}
-SELECT `month`, COUNT(*) AS `n_flights`
+SELECT `month`, `year`, COUNT(*) AS `n_flights`
 FROM `flights`
-WHERE (`year` = 2010.0)
-GROUP BY `month`
+GROUP BY `month`, `year`
 ORDER BY `n_flights` DESC
 ```
 
 ```{r}
-flights_months %>% 
+flights_2010_df <- flights_months_df %>% 
+  filter(year == 2010)
+
+flights_2010_df %>% 
   ggplot(aes(x = month, y = n_flights)) +
   geom_col(fill = "lightblue") +
   labs(x = "Month",
@@ -398,35 +398,18 @@ flights_months %>%
 
 
 ```{r}
-flights_months_over_time <- tbl(con_air, "flights") %>% 
-  group_by(month, year) %>% 
-  summarize(n_flights = n()) %>% 
-  arrange(desc(n_flights))
+flights_largest_month_df <- flights_months_df %>%
+  group_by(year) %>% 
+  slice_max(n_flights, n = 1)
 
-show_query(flights_months_over_time)
+flights_largest_month_df
 
-flights_months_over_time_df <- collect(flights_months_over_time)
-flights_months_over_time_df
-```
-
-```{sql connection = con_air}
-SELECT `month`, `year`, COUNT(*) AS `n_flights`
-FROM `flights`
-GROUP BY `month`, `year`
-ORDER BY `n_flights` DESC
-```
-
-
-```{r}
-flights_largest_month <- flights_months_over_time %>%
-  filter()
-
-flights_months_over_time %>% 
-  ggplot(aes(x = month, y = n_flights)) +
-  geom_col(fill = "lightblue") +
-  labs(x = "Month",
+flights_largest_month_df %>% 
+  ggplot(aes(x = year, y = n_flights, fill = as.factor(month))) +
+  geom_col() +
+  labs(x = "Year",
        y = "Number of Flights",
-       title = "Which months had the most flights in 2010?") +
+       title = "Most popular month over time") +
   theme_minimal()
 ```
 
