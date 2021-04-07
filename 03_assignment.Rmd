@@ -284,42 +284,64 @@ dbListTables(con_air)
 1. Create a SQL chunk and an equivalent R code chunk that does the following: for each airport (with its name, not code), year, and month find the total number of departing flights, the distinct destinations to which they flew, the average length of the flight, the average distance of the flight, and the proportion of flights that arrived more than 20 minutes late. In the R code chunk, write this out to a dataset. (HINT: 1. start small! 2. you may want to do the R part first and use it to "cheat" into the SQL code).
 
 ```{r}
-flights <- tbl(con_air, "flights") %>% 
-#  head(100) %>% 
+flights_20 <-
+  tbl(con_air, "flights") %>% 
+  head(200000)
+
+airports_20 <-
+  tbl(con_air, "airports")
+
+flights <- flights_20 %>% 
+  filter(year == 2010) %>% 
   group_by(origin, year, month) %>% 
   summarize(n_flights = n(),
-            distinct_dest = distinct(dest), #need to fix this
+            distinct_dest = n_distinct(dest),
             avg_air_time = mean(air_time),
             avg_distance = mean(distance),
             prop_late_over20 = mean(arr_delay > 20)) %>% 
+  inner_join(airports_20,
+             by = c("origin" = "faa")) %>% 
   arrange(desc(prop_late_over20))
+
+show_query(flights)
 
 flights_df <- collect(flights)
 flights_df
-
-show_query(flights)
 ```
 
-```{sql connection=}
-SELECT `origin`, `year`, `month`, COUNT(*) AS `n_flights`, select(`dest`) AS `distinct_dest`, AVG(`air_time`) AS `avg_length`, AVG(`distance`) AS `avg_distance`, AVG(`arr_delay` > 20.0) AS `prop_late_over20`
+```{sql connection = con_air}
+SELECT *
+FROM (SELECT `origin`, `year`, `month`, `n_flights`, `distinct_dest`, `avg_air_time`, `avg_distance`, `prop_late_over20`, `name`, `lat`, `lon`, `alt`, `tz`, `dst`, `city`, `country`
+FROM (SELECT `origin`, `year`, `month`, COUNT(*) AS `n_flights`, COUNT(DISTINCT `dest`) AS `distinct_dest`, AVG(`air_time`) AS `avg_air_time`, AVG(`distance`) AS `avg_distance`, AVG(`arr_delay` > 20.0) AS `prop_late_over20`
+FROM (SELECT *
 FROM `flights`
-GROUP BY `origin`, `year`, `month`
+LIMIT 200000) `q01`
+WHERE (`year` = 2010.0)
+GROUP BY `origin`, `year`, `month`) `LHS`
+INNER JOIN `airports` AS `RHS`
+ON (`LHS`.`origin` = `RHS`.`faa`)
+) `q01`
 ORDER BY `prop_late_over20` DESC
 ```
 
 
   - With the dataset you wrote out, create a graph that helps illustrate the "worst" airports in terms of late arrivals. You have some freedom in how you define worst and you may want to consider some of the other variables you computed. Do some theming to make your graph look glamorous (those of you who weren't in my intro data science class this year may want to watch Will Chase's [Glamour of Graphics](https://www.youtube.com/watch?v=h5cTacaWE6I) talk for inspiration).
   
-```{r}
-flights %>% 
+```{r, fig.width=8, fig.height=10}
+flights_many <- flights %>% 
+  filter(n_flights > 200)
+
+flights_many_df <- collect(flights_many)
+
+flights_many %>% 
   ggplot(aes(x = prop_late_over20,
-             y = fct_reorder(carrier, prop_late_over20, median))) +
+             y = fct_reorder(origin, prop_late_over20, median))) +
   geom_col(fill = "lightblue") +
   scale_x_continuous(expand = c(0,0), 
                      labels = scales::percent) +
   labs(x = NULL,
        y = NULL,
-       title = "Which airports had the largest % of flights that \nwere more than 20 minutes late from 2010-2017?") +
+       title = "Which airports had the largest % of flights that \nwere more than 20 minutes late in 2010?") +
   theme_minimal()
 ```
 
@@ -327,20 +349,85 @@ flights %>%
   - Although your graph was truly inspirational, you've been requested to "boil it down to a few numbers." Some people just don't appreciate all that effort you put in. And, you need to use the already summarized data that you already pulled in from SQL. Create a table with 6 or fewer rows and 3 or fewer columns that summarizes which airport is the "worst" in terms of late arrivals. Be careful with your calculations. You may consider using the `kable`, `kableExtra`, or `gt` packages to make your table look truly spectacular.
 
 ```{r}
+flights_many_table <- flights_many_df %>% 
+  select(name, prop_late_over20, n_flights) %>% 
+  arrange(desc(prop_late_over20)) %>% 
+  head(6)
 
+flights_many_table
+
+knitr::kable(flights_many_table, col.names = gsub("[.]", " ", names(flights)))
+table(flights_many_table)
 ```
 
 
 2. Come up with your own interesting question that data in the airlines database can help you answer. Write a SQL query and equivalent R code chunk to extract the data you need and create an elegant graph to help answer the question. Be sure to write down the question so it is clear. 
 
-Question: ANSWER
+Question: what months are the most common for flying?
 
 ```{r}
+flights_months <- tbl(con_air, "flights") %>% 
+  filter(year == 2010) %>% 
+  group_by(month) %>% 
+  summarize(n_flights = n()) %>% 
+  arrange(desc(n_flights))
 
+show_query(flights_months)
+
+flights_months_df <- collect(flights_months)
+flights_months_df
 ```
 
-```{sql connection=}
+```{sql connection = con_air}
+SELECT `month`, COUNT(*) AS `n_flights`
+FROM `flights`
+WHERE (`year` = 2010.0)
+GROUP BY `month`
+ORDER BY `n_flights` DESC
+```
 
+```{r}
+flights_months %>% 
+  ggplot(aes(x = month, y = n_flights)) +
+  geom_col(fill = "lightblue") +
+  labs(x = "Month",
+       y = "Number of Flights",
+       title = "Which months had the most flights in 2010?") +
+  theme_minimal()
+```
+
+
+```{r}
+flights_months_over_time <- tbl(con_air, "flights") %>% 
+  group_by(month, year) %>% 
+  summarize(n_flights = n()) %>% 
+  arrange(desc(n_flights))
+
+show_query(flights_months_over_time)
+
+flights_months_over_time_df <- collect(flights_months_over_time)
+flights_months_over_time_df
+```
+
+```{sql connection = con_air}
+SELECT `month`, `year`, COUNT(*) AS `n_flights`
+FROM `flights`
+GROUP BY `month`, `year`
+ORDER BY `n_flights` DESC
+```
+
+
+```{r}
+flights_largest_month <- flights_months_over_time %>%
+  filter()
+
+flights_months_over_time %>% 
+  ggplot(aes(x = month, y = n_flights)) +
+  geom_col(fill = "lightblue") +
+  labs(x = "Month",
+       y = "Number of Flights",
+       title = "Which months had the most flights in 2010?") +
+  theme_minimal()
 ```
 
 ## Function Friday
