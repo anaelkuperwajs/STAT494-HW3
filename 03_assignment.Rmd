@@ -285,26 +285,18 @@ dbListTables(con_air)
 
 
 
-1. Create a SQL chunk and an equivalent R code chunk that does the following: for each airport (with its name, not code), year, and month find the total number of departing flights, the distinct destinations to which they flew, the average length of the flight, the average distance of the flight, and the proportion of flights that arrived more than 20 minutes late. In the R code chunk, write this out to a dataset. (HINT: 1. start small! 2. you may want to do the R part first and use it to "cheat" into the SQL code).
+1. Create a SQL chunk and an equivalent R code chunk that does the following: for 2017, for each airport (with its name, not code) and month find the total number of departing flights, the average distance of the flight, and the proportion of flights that arrived more than 20 minutes late. In the R code chunk, write this out to a dataset. (HINT: 1. start small! 2. you may want to do the R part first and use it to "cheat" into the SQL code).
 
 ```{r}
-flights_20 <-
-  tbl(con_air, "flights") %>% 
-  head(200000)
-
-flights <- flights_20 %>% 
-  filter(year == 2010) %>% 
-  group_by(origin, year, month) %>% 
+flights <- tbl(con_air, "flights") %>% 
+  filter(year == 2017) %>% 
+  group_by(origin, month) %>% 
   summarize(n_flights = n(),
-            distinct_dest = n_distinct(dest),
-            avg_air_time = mean(air_time),
             avg_distance = mean(distance),
             prop_late_over20 = mean(arr_delay > 20)) %>% 
   inner_join(tbl(con_air, "airports"),
              by = c("origin" = "faa")) %>% 
   arrange(desc(prop_late_over20))
-
-show_query(flights)
 
 flights_df <- collect(flights)
 flights_df
@@ -312,13 +304,11 @@ flights_df
 
 ```{sql connection = con_air}
 SELECT *
-FROM (SELECT `origin`, `year`, `month`, `n_flights`, `distinct_dest`, `avg_air_time`, `avg_distance`, `prop_late_over20`, `name`, `lat`, `lon`, `alt`, `tz`, `dst`, `city`, `country`
-FROM (SELECT `origin`, `year`, `month`, COUNT(*) AS `n_flights`, COUNT(DISTINCT `dest`) AS `distinct_dest`, AVG(`air_time`) AS `avg_air_time`, AVG(`distance`) AS `avg_distance`, AVG(`arr_delay` > 20.0) AS `prop_late_over20`
-FROM (SELECT *
+FROM (SELECT `origin`, `month`, `n_flights`, `avg_distance`, `prop_late_over20`, `name`, `lat`, `lon`, `alt`, `tz`, `dst`, `city`, `country`
+FROM (SELECT `origin`, `month`, COUNT(*) AS `n_flights`, AVG(`distance`) AS `avg_distance`, AVG(`arr_delay` > 20.0) AS `prop_late_over20`
 FROM `flights`
-LIMIT 200000) `q01`
-WHERE (`year` = 2010.0)
-GROUP BY `origin`, `year`, `month`) `LHS`
+WHERE (`year` = 2017.0)
+GROUP BY `origin`, `month`) `LHS`
 INNER JOIN `airports` AS `RHS`
 ON (`LHS`.`origin` = `RHS`.`faa`)
 ) `q01`
@@ -328,19 +318,23 @@ ORDER BY `prop_late_over20` DESC
 
   - With the dataset you wrote out, create a graph that helps illustrate the "worst" airports in terms of late arrivals. You have some freedom in how you define worst and you may want to consider some of the other variables you computed. Do some theming to make your graph look glamorous (those of you who weren't in my intro data science class this year may want to watch Will Chase's [Glamour of Graphics](https://www.youtube.com/watch?v=h5cTacaWE6I) talk for inspiration).
   
-```{r, fig.width=8, fig.height=10}
+```{r, fig.width=8, fig.height=12}
 flights_many_df <- flights_df %>% 
-  filter(n_flights > 200)
+  group_by(origin, name) %>% 
+  summarize(n_flights_2017 = sum(n_flights),
+            prop_late_over20_2017 = (sum(prop_late_over20 * n_flights)) / sum(n_flights)) %>% 
+  filter(n_flights_2017 > 200) %>% 
+  arrange(desc(prop_late_over20_2017))
 
 flights_many_df %>% 
-  ggplot(aes(x = prop_late_over20,
-             y = fct_reorder(origin, prop_late_over20, median))) +
+  ggplot(aes(x = prop_late_over20_2017,
+             y = fct_reorder(origin, prop_late_over20_2017, median))) +
   geom_col(fill = "lightblue") +
   scale_x_continuous(expand = c(0,0), 
                      labels = scales::percent) +
   labs(x = NULL,
        y = NULL,
-       title = "Which airports had the largest % of flights that \nwere more than 20 minutes late in 2010?") +
+       title = "Which airports had the largest % of flights that \nwere more than 20 minutes late in 2017?") +
   theme_minimal()
 ```
 
@@ -350,13 +344,11 @@ flights_many_df %>%
 ```{r}
 flights_many_table <- flights_many_df %>% 
   ungroup() %>% 
-  select(name, prop_late_over20, n_flights) %>% 
-  arrange(desc(prop_late_over20)) %>% 
+  select(name, prop_late_over20_2017, n_flights_2017) %>% 
+  arrange(desc(prop_late_over20_2017)) %>% 
   head(6)
-
-flights_many_table
-
-knitr::kable(flights_many_table, col.names = c("Name", "Proportion of Late Flights", "Number of Flights"))
+  
+knitr::kable(flights_many_table, col.names = c("Airport", "Proportion of Late Flights in 2017", "Number of Flights in 2017"))
 ```
 
 
@@ -369,8 +361,6 @@ flights_months <- tbl(con_air, "flights") %>%
   group_by(month, year) %>% 
   summarize(n_flights = n()) %>% 
   arrange(desc(n_flights))
-
-show_query(flights_months)
 
 flights_months_df <- collect(flights_months)
 flights_months_df
@@ -401,8 +391,6 @@ flights_2010_df %>%
 flights_largest_month_df <- flights_months_df %>%
   group_by(year) %>% 
   slice_max(n_flights, n = 1)
-
-flights_largest_month_df
 
 flights_largest_month_df %>% 
   ggplot(aes(x = year, y = n_flights, fill = as.factor(month))) +
